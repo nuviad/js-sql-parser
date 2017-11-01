@@ -87,6 +87,10 @@ LOCK                                                              return 'LOCK'
 SHARE                                                             return 'SHARE'
 MODE                                                              return 'MODE'
 OJ                                                                return 'OJ'
+AT\s+TIME\s+ZONE                                                  return 'AT_TIME_ZONE'
+DATE                                                              return 'DATE'
+TIMESTAMP                                                         return 'TIMESTAMP'
+INTERVAL                                                          return 'INTERVAL'
 
 ","                                                               return ','
 "="                                                               return '='
@@ -114,7 +118,8 @@ OJ                                                                return 'OJ'
 "{"                                                               return '{'
 "}"                                                               return '}'
 ";"                                                               return ';'
-                                                                 
+"::"                                                              return '::'
+
 ['](\\.|[^'])*[']                                                 return 'STRING'
 ["](\\.|[^"])*["]                                                 return 'STRING'
 [0][x][0-9a-fA-F]+                                                return 'HEX_NUMERIC'
@@ -319,6 +324,9 @@ simple_expr_prefix
   | '~' simple_expr { $$ = { type: 'Prefix', prefix: $1, value: $2 } }
   | '!' simple_expr %prec UNOT { $$ = { type: 'Prefix', prefix: $1, value: $2 } }
   |  BINARY simple_expr { $$ = { type: 'Prefix', prefix: $1, value: $2 } }
+  |  DATE simple_expr { $$ = { type: 'Cast', value: $2, toType: $1 } }
+  |  TIMESTAMP simple_expr { $$ = { type: 'Cast', value: $2, toType: $1 } }
+  |  INTERVAL simple_expr { $$ = { type: 'Interval', value: $2 } }
   ;
 simple_expr
   : literal { $$ = $1 }
@@ -346,6 +354,9 @@ bit_expr
   | bit_expr MOD bit_expr { $$ = { type: 'BitExpression', operator: 'MOD', left: $1, right: $3 } }
   | bit_expr '%' bit_expr { $$ = { type: 'BitExpression', operator: '%', left: $1, right: $3 } }
   | bit_expr '^' bit_expr { $$ = { type: 'BitExpression', operator: '^', left: $1, right: $3 } }
+  | bit_expr '::' identifier { $$ = { type: 'Cast', left: $1, toType: $3 } }
+  | bit_expr '::' DATE { $$ = { type: 'Cast', left: $1, toType: $3 } }
+  | bit_expr '::' TIMESTAMP { $$ = { type: 'Cast', left: $1, toType: $3 } }
   ;
 not_opt
   : { $$ = null }
@@ -355,6 +366,10 @@ escape_opt
   : { $$ = null }
   | ESCAPE simple_expr { $$ = $2 }
   ;
+at_time_zone_opt
+  : { $$ = null }
+  | AT_TIME_ZONE simple_expr { $$ = $2 }
+  ;
 predicate
   : bit_expr { $$ = $1 }
   | bit_expr not_opt IN '(' selectClause ')' { $$ = { type: 'InSubQueryPredicate', hasNot: $2, left: $1 ,right: $5 } }
@@ -363,6 +378,7 @@ predicate
   | bit_expr SOUNDS LIKE bit_expr { $$ = { type: 'SoundsLikePredicate', hasNot: false, left: $1, right: $4 } }
   | bit_expr not_opt LIKE simple_expr escape_opt { $$ = { type: 'LikePredicate', hasNot: $2, left: $1, right: $4, escape: $5 } }
   | bit_expr not_opt REGEXP bit_expr { $$ = { type: 'RegexpPredicate', hasNot: $2, left: $1, right: $4 } }
+  | bit_expr not_opt at_time_zone_opt { $$ = { type: 'TimezonePredicate', hasNot: $2, left: $1, timezone: $3 } }
   ;
 comparison_operator
   : '=' { $$ = $1 }
