@@ -256,6 +256,8 @@ selectExpr
 selectExprAliasOpt
   : { $$ = {alias: null, hasAs: null} }
   | AS IDENTIFIER { $$ = {alias: $2, hasAs: true} }
+  | AS DATE { $$ = {alias: $2, hasAs: true} }
+  | AS TIMESTAMP { $$ = {alias: $2, hasAs: true} }
   | IDENTIFIER { $$ = {alias: $1, hasAs: false} }
   ;
 
@@ -340,6 +342,10 @@ simple_expr
   | '{' identifier expr '}' { $$ = { type: 'IdentifierExpr', identifier: $2, value: $3 } }
   | case_when { $$ = $1 }
   ;
+at_time_zone_opt
+  : { $$ = null }
+  | AT_TIME_ZONE simple_expr { $$ = $2 }
+  ;
 bit_expr
   : simple_expr { $$ = $1 }
   | bit_expr '|' bit_expr { $$ = { type: 'BitExpression', operator: '|', left: $1, right: $3 } } 
@@ -354,9 +360,10 @@ bit_expr
   | bit_expr MOD bit_expr { $$ = { type: 'BitExpression', operator: 'MOD', left: $1, right: $3 } }
   | bit_expr '%' bit_expr { $$ = { type: 'BitExpression', operator: '%', left: $1, right: $3 } }
   | bit_expr '^' bit_expr { $$ = { type: 'BitExpression', operator: '^', left: $1, right: $3 } }
-  | bit_expr '::' identifier { $$ = { type: 'Cast', left: $1, toType: $3 } }
-  | bit_expr '::' DATE { $$ = { type: 'Cast', left: $1, toType: $3 } }
-  | bit_expr '::' TIMESTAMP { $$ = { type: 'Cast', left: $1, toType: $3 } }
+  | bit_expr '::' identifier { $$ = { type: 'BitExpression', operator: '::', left: $1, right: $3 } }
+  | bit_expr '::' DATE { $$ = { type: 'BitExpression', operator: '::', left: $1, right: $3 } }
+  | bit_expr '::' TIMESTAMP { $$ = { type: 'BitExpression', operator: '::', left: $1, right: $3 } }
+  | bit_expr at_time_zone_opt { $$ = { type: 'BitExpression', operator: 'AT_TIME_ZONE', left: $1, right: $2 } }
   ;
 not_opt
   : { $$ = null }
@@ -366,19 +373,16 @@ escape_opt
   : { $$ = null }
   | ESCAPE simple_expr { $$ = $2 }
   ;
-at_time_zone_opt
-  : { $$ = null }
-  | AT_TIME_ZONE simple_expr { $$ = $2 }
-  ;
 predicate
   : bit_expr { $$ = $1 }
   | bit_expr not_opt IN '(' selectClause ')' { $$ = { type: 'InSubQueryPredicate', hasNot: $2, left: $1 ,right: $5 } }
   | bit_expr not_opt IN '(' expr_list ')' { $$ = { type: 'InExpressionListPredicate', hasNot: $2, left: $1, right: $5 } }
+  | DATE not_opt BETWEEN bit_expr AND predicate { $$ = { type: 'BetweenPredicate', hasNot: $2, left: $1, right: { left: $4, right: $6 } } }
+  | TIMESTAMP not_opt BETWEEN bit_expr AND predicate { $$ = { type: 'BetweenPredicate', hasNot: $2, left: $1, right: { left: $4, right: $6 } } }
   | bit_expr not_opt BETWEEN bit_expr AND predicate { $$ = { type: 'BetweenPredicate', hasNot: $2, left: $1, right: { left: $4, right: $6 } } }
   | bit_expr SOUNDS LIKE bit_expr { $$ = { type: 'SoundsLikePredicate', hasNot: false, left: $1, right: $4 } }
   | bit_expr not_opt LIKE simple_expr escape_opt { $$ = { type: 'LikePredicate', hasNot: $2, left: $1, right: $4, escape: $5 } }
   | bit_expr not_opt REGEXP bit_expr { $$ = { type: 'RegexpPredicate', hasNot: $2, left: $1, right: $4 } }
-  | bit_expr not_opt at_time_zone_opt { $$ = { type: 'TimezonePredicate', hasNot: $2, left: $1, timezone: $3 } }
   ;
 comparison_operator
   : '=' { $$ = $1 }
