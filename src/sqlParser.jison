@@ -80,6 +80,7 @@ DESC                                                              return 'DESC'
 WITH                                                              return 'WITH'
 ROLLUP                                                            return 'ROLLUP'
 HAVING                                                            return 'HAVING'
+LIMIT                                                             return 'LIMIT'
 OFFSET                                                            return 'OFFSET'
 PROCEDURE                                                         return 'PROCEDURE'
 UPDATE                                                            return 'UPDATE'
@@ -400,8 +401,15 @@ sub_query_data_set_opt
 boolean_primary
   : predicate { $$ = $1 }
   | boolean_primary IS not_opt NULL { $$ = { type: 'IsNullBooleanPrimary', hasNot: $3 , value: $1 } }
+  | boolean_primary IS not_opt NULL { $$ = { type: 'IsNullBooleanPrimary', hasNot: $3 , value: $1 } }
   | boolean_primary comparison_operator predicate { $$ = { type: 'ComparisonBooleanPrimary', left: $1, operator: $2, right: $3 } }
   | boolean_primary comparison_operator sub_query_data_set_opt '(' selectClause ')' { $$ = { type: 'ComparisonSubQueryBooleanPrimary', operator: $2, subQueryOpt: $3, left: $1, right: $5 } }
+  | DATE IS not_opt NULL { $$ = { type: 'IsNullBooleanPrimary', hasNot: $3 , value: $1 } }
+  | DATE comparison_operator predicate { $$ = { type: 'ComparisonBooleanPrimary', left: $1, operator: $2, right: $3 } }
+  | DATE comparison_operator sub_query_data_set_opt '(' selectClause ')' { $$ = { type: 'ComparisonSubQueryBooleanPrimary', operator: $2, subQueryOpt: $3, left: $1, right: $5 } }
+  | TIMESTAMP IS not_opt NULL { $$ = { type: 'IsNullBooleanPrimary', hasNot: $3 , value: $1 } }
+  | TIMESTAMP comparison_operator predicate { $$ = { type: 'ComparisonBooleanPrimary', left: $1, operator: $2, right: $3 } }
+  | TIMESTAMP comparison_operator sub_query_data_set_opt '(' selectClause ')' { $$ = { type: 'ComparisonSubQueryBooleanPrimary', operator: $2, subQueryOpt: $3, left: $1, right: $5 } }
   ;
 boolean_extra
   : boolean { $$ = $1 }
@@ -461,9 +469,9 @@ having_opt
   | HAVING expr { $$ = $2 }
   ;
 limit
-  : NUMERIC { $$ = { type: 'Limit', value: [ $1 ] } }
-  | NUMERIC ',' NUMERIC { $$ = { type: 'Limit', value: [ $1, $3 ] } }
-  | NUMERIC OFFSET NUMERIC { $$ = { type: 'Limit', value: [ $3, $1 ], offsetMode: true } }
+  : LIMIT NUMERIC { $$ = { type: 'Limit', value: [ $1 ] } }
+  | LIMIT NUMERIC ',' NUMERIC { $$ = { type: 'Limit', value: [ $1, $3 ] } }
+  | LIMIT NUMERIC OFFSET NUMERIC { $$ = { type: 'Limit', value: [ $3, $1 ], offsetMode: true } }
   ;
 limit_opt
   : { $$ = null }
